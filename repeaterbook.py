@@ -1,6 +1,7 @@
 import json
 import requests
 import urllib.parse
+from plot_utils import _convert_FIPS_to_state_name as fips_to_state
 
 rb_api_url = "https://www.repeaterbook.com/api/export.php"
 
@@ -46,6 +47,67 @@ bands = {
     }
 }
 
+emergency_nets = [
+    "ARES",
+    "RACES",
+    "SKYWARN",
+    "CANWARN"
+]
+
+class rb_repeater:
+    def __init__(self, rb_repeater: dict) -> None:
+        self.freq = rb_repeater["Frequency"]
+        self.in_freq = rb_repeater["Input Freq"]
+        self.pl_tone = rb_repeater["PL"]
+        self.tsq = rb_repeater["TSQ"]
+        
+        self.callsign = rb_repeater["Callsign"]
+        self.set_emergency_nets(rb_repeater)
+        
+        self.latitude = float(rb_repeater["Lat"])
+        self.longitude = float(rb_repeater["Long"])
+        self.city = rb_repeater["Nearest City"]
+        self.state_id = {
+            rb_repeater["State ID"]: ""
+        }
+        self.state = self.translate_fips()
+        
+        self.notes = rb_repeater["Notes"]
+        
+        self.remove_empty_members()
+       
+        
+    def __repr__(self) -> str:
+        return self.callsign
+
+        
+    def __lt__(self, other) -> bool: 
+        return self.callsign < other.callsign
+    
+    
+    def remove_empty_members(self) -> None:
+        for member in dir(self):
+            if member.type() == str and member == "":
+                del self.member
+            elif member.type() == list and len(member) == 0:
+                del self.member
+            elif member.type() == int and member == 0:
+                del self.member
+            elif member.type() == float and member == 0:
+                del self.member
+            
+    
+    def translate_fips(self) -> str:
+        return list(fips_to_state(self.state_id).keys())[0]
+    
+    
+    def set_emergency_nets(self, rb_repeater: dict) -> None:
+        self.emergency_nets = []
+        
+        for net in emergency_nets:
+            if rb_repeater[net] != "No":
+                self.emergency_nets.append(net)
+
 
 def url_encode(text, safe: str="") -> str:
     if safe == "":
@@ -68,19 +130,20 @@ def query_rb() -> dict:
     return query.json()
 
 
-def categorize_results(query: dict) -> dict:
+def categorize_results(query: dict) -> list:
     results = query['results']
+    output = []
     
     for repeater in results:
-        for key, value in repeater.items():
-            print(attribute)
+        entry = rb_repeater(repeater)
+        output.append(entry)
         
-    return results
+    return sorted(output)
 
 
 results = query_rb()
 
-categorize_results(results)
+repeaters = categorize_results(results)
 
 exit(0)
 
