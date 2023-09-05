@@ -11,6 +11,7 @@ import hashlib
 import string
 import random
 import hmac
+import json
 
 # source https://stackoverflow.com/questions/55883181/how-can-i-get-all-cities-within-a-given-radius-of-a-given-city-from-the-here-api
 
@@ -34,7 +35,7 @@ def create_nonce() -> str:
     return result
 
 
-def authenticate() -> str:
+def authenticate() -> OAuth2Session:
     client_id = getenv("here.client.id")
     key_id = getenv("here.access.key.id")
     key_secret = getenv('here.access.key.secret')
@@ -45,7 +46,7 @@ def authenticate() -> str:
     }
     
     here_session = OAuth1Session(key_id, client_secret=key_secret)
-    token = here_session.post(token_endpoint_url, headers=headers, data=payload)
+    token = here_session.post(token_endpoint_url, data=payload)
     here_session = OAuth2Session(client_id, token=token.json())
     
     if here_session.authorized:
@@ -86,38 +87,50 @@ def handle_http_codes(response: requests.Response) -> bool:
         return True
     else:
         print("HTTP Code {0} {1}, request failed. ".format(code, reason))
+        exit(1)
 
 
-def query_api(session: OAuth2Session, url: str, params: dict) -> requests.Response:
-    request = session.get(url, params=params)
+def query_api(session: OAuth2Session) -> requests.Response:
+    # r for radius here is measured in meters. 
+    # 25 miles = 40234 meters
+    params = {
+        "in": "circle:52.5309,13.3847;r=40234",
+        # "apiKey": getenv("here.api.key"),api_url
+        "lang": "en-US",
+        "types": "city",
+        # "limit": 0
+    }
+    params = url_encode(params, safe=".;:=,")
+    request = session.get(api_url, params=params)
     
     print(request.url)
     
     handle_http_codes(request)
     
-    return request
+    r_json = request.json()
+    
+    return r_json
 
 
-def get_cities_in_radius(params: dict) -> list:
-    request = query_api(api_url, params)
+def get_cities_in_radius(session: OAuth2Session) -> list:
+    request = query_api(session)
+    
+    for item in request["items"]:
+        print(json.dumps(item, indent=2))
+    
     
     return request
 
 
 def test_query() -> requests.Response:
     # Not working yet. 403 with good API key. Why?
-    params = {
-        "apiKey": getenv("here.api.key"),
-        "at": "52.5309,13.3847",
-        # "app_id": getenv("here.app.id"),
-        # "apiKey": "keyHere",
-        "lang": "en-US"
-    }
+    url = "https://reverse.geocoder.api.here.com/6.2/reversegeocode.json"
+
     params = url_encode(params, safe=".,")
 
     here_session = authenticate()
     
-    request = query_api(here_session, api_url, params)
+    request = query_api(here_session, url, params)
     
     print(request.content)
     return request
