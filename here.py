@@ -16,13 +16,13 @@ import hmac
 
 load_dotenv()
 
-api_url = "https://reverse.geocoder.api.here.com/6.2/reversegeocode.json"
+api_url = "https://revgeocode.search.hereapi.com/v1/revgeocode"
 
 
 headers = {
     "User-Agent" : "repeaterbookGeoanalysis https://github.com/nicheProgramming/repeaterbookGeoanalysis",
-    "Authorization": "OAuth",
-    "Content-Type": "application/x-www-form-urlencoded"
+    "Accept": "application/json",
+    "Authorization": "OAuth"
 }
 
 
@@ -45,7 +45,7 @@ def authenticate() -> str:
     }
     
     here_session = OAuth1Session(key_id, client_secret=key_secret)
-    token = here_session.post(token_endpoint_url, data=payload)
+    token = here_session.post(token_endpoint_url, headers=headers, data=payload)
     here_session = OAuth2Session(client_id, token=token.json())
     
     if here_session.authorized:
@@ -106,21 +106,18 @@ def get_cities_in_radius(params: dict) -> list:
 
 def test_query() -> requests.Response:
     # Not working yet. 403 with good API key. Why?
-    url = "https://reverse.geocoder.api.here.com/6.2/reversegeocode.json"
     params = {
-        "prox": "52.5309,13.3847,80500",
-        # "app_id": getenv("here.app.id"),
         "apiKey": getenv("here.api.key"),
+        "at": "52.5309,13.3847",
+        # "app_id": getenv("here.app.id"),
         # "apiKey": "keyHere",
-        "mode": "retrieveAreas",
-        "level": "city",
-        "gen": "9"
+        "lang": "en-US"
     }
     params = url_encode(params, safe=".,")
 
     here_session = authenticate()
     
-    request = query_api(here_session, url, params)
+    request = query_api(here_session, api_url, params)
     
     print(request.content)
     return request
