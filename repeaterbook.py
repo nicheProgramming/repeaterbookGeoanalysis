@@ -152,11 +152,13 @@ def categorize_results(query: dict) -> list:
 
 def query_cities(cities: list) -> list:
     results = []
+    seconds = 60
     
     for city in cities:
         print("Querying city {}...".format(city))
         results.append(query_rb(city))
-        sleep(60)
+        print("Waiting {} seconds before next query...".format(seconds))
+        sleep(seconds)
         
         
     return results

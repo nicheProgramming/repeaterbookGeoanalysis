@@ -25,9 +25,12 @@ def get_coords_of_city(city):
 
 @authenticate
 def main(h_session: OAuth2Session) -> None:
+    # Radius in miles
+    radius = 10
+    
     cities = here.get_cities_in_radius(h_session)
     
-    results = repeaterbook.query_cities(cities)
+    results = repeaterbook.query_cities(cities, radius)
 
     
     return

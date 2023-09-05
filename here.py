@@ -90,17 +90,27 @@ def handle_http_codes(response: requests.Response) -> bool:
         exit(1)
 
 
-def query_api(session: OAuth2Session) -> requests.Response:
+def mi_to_meters(miles: int) -> int: 
+    conversion_factor = 1.60934
+    km = round(miles * conversion_factor)
+    meters = km / 1000
+    
+    return meters
+
+
+def meters_to_mi(meters: int) -> int:
+    conversion_factor = 1.60934
+    km = meters / 1000
+    miles = round(km / conversion_factor)
+    
+    return miles
+
+
+def query_api(session: OAuth2Session, radius: int) -> requests.Response:
     # r for radius here is measured in meters. 
     # 25 miles = 40234 meters
-    miles_to_meters = {
-        25: 40234,
-        50: 80467,
-        75: 120701,
-        100: 160934
-    }
     params = {
-        "in": "circle:36.153980,-95.992775;r={}".format(miles_to_meters[50]),
+        "in": "circle:36.153980,-95.992775;r={}".format(mi_to_meters(radius)),
         # "apiKey": getenv("here.api.key"),api_url
         "lang": "en-US",
         "types": "city",
@@ -118,7 +128,7 @@ def query_api(session: OAuth2Session) -> requests.Response:
     return r_json
 
 
-def get_cities_in_radius(session: OAuth2Session) -> list:
+def get_cities_in_radius(session: OAuth2Session, radius) -> list:
     request = query_api(session)
     cities = []
     
