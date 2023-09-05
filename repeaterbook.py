@@ -121,7 +121,7 @@ def build_query(city:str) -> str:
     return rb_api_url + query
 
 
-def query_rb_by_city(city: str) -> dict:
+def query_rb(city: str) -> dict:
     query_url = build_query(city) 
     q_headers = url_encode(headers)
     
@@ -129,9 +129,12 @@ def query_rb_by_city(city: str) -> dict:
     
     wait_seconds = 60
     
-    if "rate_limiting" in query.text:
+    while "rate_limiting" in query.text:
         print("Hit Repeaterbook rate limit. Waiting {} seconds...".format(wait_seconds))
+        
         sleep(60)
+        
+        query = requests.get(query_url, headers=headers)
     
     return query.json()
 
@@ -152,7 +155,7 @@ def query_cities(cities: list) -> list:
     
     for city in cities:
         print("Querying city {}...".format(city))
-        results.append(query_rb_by_city(city))
+        results.append(query_rb(city))
         sleep(60)
         
         
