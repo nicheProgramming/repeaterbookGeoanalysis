@@ -1,6 +1,7 @@
 import json
 import requests
 import urllib.parse
+from time import sleep
 from plot_utils import _convert_FIPS_to_state_name as fips_to_state
 
 rb_api_url = "https://www.repeaterbook.com/api/export.php"
@@ -23,8 +24,7 @@ modes = [
     "P-25 NAC",
     "M17",
     "Tetra",
-    "System Fusion",
-    "ATV"
+    "System Fusion"
 ]
 
 bands = {
@@ -121,11 +121,17 @@ def build_query(city:str) -> str:
     return rb_api_url + query
 
 
-def query_rb() -> dict:
-    query_url = build_query("Tulsa") 
+def query_rb_by_city(city: str) -> dict:
+    query_url = build_query(city) 
     q_headers = url_encode(headers)
     
     query = requests.get(query_url, headers=headers)
+    
+    wait_seconds = 60
+    
+    if "rate_limiting" in query.text:
+        print("Hit Repeaterbook rate limit. Waiting {} seconds...".format(wait_seconds))
+        sleep(60)
     
     return query.json()
 
@@ -141,9 +147,14 @@ def categorize_results(query: dict) -> list:
     return sorted(output)
 
 
-results = query_rb()
-
-repeaters = categorize_results(results)
-
-exit(0)
-
+def query_cities(cities: list) -> list:
+    results = []
+    
+    for city in cities:
+        print("Querying city {}...".format(city))
+        results.append(query_rb_by_city(city))
+        sleep(60)
+        
+        
+    return results
+    

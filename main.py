@@ -1,7 +1,7 @@
 from requests_oauthlib import OAuth2Session
 from dotenv import load_dotenv
 from functools import wraps
-import requests
+import repeaterbook
 import here
 
 load_dotenv()
@@ -25,7 +25,9 @@ def get_coords_of_city(city):
 
 @authenticate
 def main(h_session: OAuth2Session) -> None:
-    h_response = here.get_cities_in_radius(h_session)
+    cities = here.get_cities_in_radius(h_session)
+    
+    results = repeaterbook.query_cities(cities)
 
     
     return

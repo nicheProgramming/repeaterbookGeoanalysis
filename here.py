@@ -93,8 +93,14 @@ def handle_http_codes(response: requests.Response) -> bool:
 def query_api(session: OAuth2Session) -> requests.Response:
     # r for radius here is measured in meters. 
     # 25 miles = 40234 meters
+    miles_to_meters = {
+        25: 40234,
+        50: 80467,
+        75: 120701,
+        100: 160934
+    }
     params = {
-        "in": "circle:36.153980,-95.992775;r=40234",
+        "in": "circle:36.153980,-95.992775;r={}".format(miles_to_meters[50]),
         # "apiKey": getenv("here.api.key"),api_url
         "lang": "en-US",
         "types": "city",
@@ -114,11 +120,12 @@ def query_api(session: OAuth2Session) -> requests.Response:
 
 def get_cities_in_radius(session: OAuth2Session) -> list:
     request = query_api(session)
+    cities = []
     
     num_items_returned =  len(request["items"]) 
     
     for item in request["items"]:
-        print(item["address"]["city"])   
+        cities.append(item["address"]["city"])   
     
     if num_items_returned == 100:
         print("Warning! Return limit hit when querying here api")
@@ -127,7 +134,7 @@ def get_cities_in_radius(session: OAuth2Session) -> list:
     else:
         print("Cities found: {}".format(num_items_returned))
     
-    return request
+    return cities
 
 
 def test_query() -> requests.Response:
