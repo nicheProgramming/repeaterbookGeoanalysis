@@ -5,8 +5,6 @@ import requests
 from dotenv import load_dotenv
 from requests_oauthlib import OAuth1Session, OAuth2Session
 
-# source https://stackoverflow.com/questions/55883181/how-can-i-get-all-cities-within-a-given-radius-of-a-given-city-from-the-here-api
-
 load_dotenv()
 
 API_URL = "https://revgeocode.search.hereapi.com/v1/revgeocode"
@@ -20,6 +18,11 @@ headers = {
 
 
 def authenticate() -> OAuth2Session:
+    """Authenticates against the Here API
+
+    Returns:
+        OAuth2Session: Authenticated Here API OAuth session
+    """
     client_id = getenv("here.client.id")
     key_id = getenv("here.access.key.id")
     key_secret = getenv('here.access.key.secret')
@@ -57,7 +60,16 @@ def param_formatter(params: dict, prefix: str) -> str:
     return prefix + output
 
 
-def url_encode(text, safe: str="") -> str:
+def url_encode(text: str, safe: str="") -> str:
+    """Encodes text to be URL safe
+
+    Args:
+        text (str): Text to be encoded
+        safe (str, optional): Characters that should not be encoded. Defaults to "".
+
+    Returns:
+        encoded_text (str): URL safe text
+    """
     if not safe:
         return urllib.parse.quote(text, safe="")
 
@@ -67,7 +79,7 @@ def url_encode(text, safe: str="") -> str:
 def handle_http_codes(response: requests.Response) -> bool:
     code = response.status_code
 
-    if code >= 200 and code <= 299:
+    if 200 <= code <= 299:
         return True
 
     reason = response.reason
@@ -79,16 +91,16 @@ def handle_http_codes(response: requests.Response) -> bool:
 
 def mi_to_meters(miles: int) -> int:
     conversion_factor = 1.60934
-    km = round(miles * conversion_factor)
+    kilometers = round(miles * conversion_factor)
 
-    return km / 1000
+    return kilometers / 1000
 
 
 def meters_to_mi(meters: int) -> int:
     conversion_factor = 1.60934
-    km = meters / 1000
+    kilometers = meters / 1000
 
-    return round(km / conversion_factor)
+    return round(kilometers / conversion_factor)
 
 
 def query_api(session: OAuth2Session, radius: int) -> requests.Response:

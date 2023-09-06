@@ -25,23 +25,42 @@ modes = [
     "Tetra",
     "System Fusion"
 ]
+# Frequencies in MHz
 bands = {
     "10m": {
         "min": 28,
         "max": 29.7,
-        "freq_range": "HF",
-        "unit": "MHz"
+        "freq_range": "HF"
     },
-    "6m": "",
-    "2m": "",
-    "1.25m": "",
-    "70cm": "",
-    "33cm": "",
+    "6m": {
+        "min": 50,
+        "max": 54,
+        "freq_range": "VHF"
+    },
+    "2m": {
+        "min": 144,
+        "max": 148,
+        "freq_range": "VHF"
+    },
+    "1.25m": {
+        "min": 220,
+        "max": 225,
+        "freq_range": "VHF"
+    },
+    "70cm": {
+        "min": 430,
+        "max": 440,
+        "freq_range": "UHF"
+    },
+    "33cm": {
+        "min": 902,
+        "max": 928,
+        "freq_range": "UHF"
+    },
     "23cm": {
-        "min": 1.2,
-        "max": 1.325,
-        "freq_range": "UHF",
-        "unit": "GHz"
+        "min": 1200,
+        "max": 1325,
+        "freq_range": "UHF"
     }
 }
 emergency_nets = [
@@ -51,7 +70,9 @@ emergency_nets = [
     "CANWARN"
 ]
 
-class rb_repeater:
+class RbRepeater:
+    """Repeater object, storing information from Repeaterbook's API for a given repeater
+    """
     def __init__(self, json_repeater: dict) -> None:
         self.freq = json_repeater["Frequency"]
         self.in_freq = json_repeater["Input Freq"]
@@ -61,8 +82,7 @@ class rb_repeater:
         self.callsign = json_repeater["Callsign"]
         self.set_emergency_nets(json_repeater)
 
-        self.latitude = float(json_repeater["Lat"])
-        self.longitude = float(json_repeater["Long"])
+        self.coords = [ float(json_repeater["Lat"]), float(json_repeater["Long"]) ]
         self.city = json_repeater["Nearest City"]
         self.state_id = {
             json_repeater["State ID"]: ""
@@ -100,6 +120,11 @@ class rb_repeater:
 
 
     def set_emergency_nets(self, json_repeater: dict) -> None:
+        """Sets the repeater's emergency nets if any are present
+
+        Args:
+            json_repeater (dict): JSON Repeaterbook response
+        """
         self.emergency_nets = []
 
         for net in json_repeater["nets"]:
@@ -168,13 +193,13 @@ def categorize_results(query: dict) -> list:
         query (dict): The query results from Repeaterbook
 
     Returns:
-        repeater_list (list): List of rb_repeater objects formed from the Repeaterbook data
+        repeater_list (list): List of RbRepeater objects formed from the Repeaterbook data
     """
     results = query['results']
     output = []
 
     for repeater in results:
-        entry = rb_repeater(repeater)
+        entry = RbRepeater(repeater)
         output.append(entry)
 
     return sorted(output)
@@ -187,7 +212,7 @@ def query_cities(cities: list) -> list:
         cities (list): List of cities to query Repeaterbook for
 
     Returns:
-        Amalgam_list (list): List of query_rb output list (list of rb_repeater objects) for all queried cities
+        Amalgam_list (list): query_rb output list (list of RbRepeater objs) for all queried cities
     """
     results = []
     seconds = 60
