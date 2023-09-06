@@ -1,16 +1,15 @@
-import json
-import requests
 import urllib.parse
 from time import sleep
+
+import requests
 from plot_utils import _convert_FIPS_to_state_name as fips_to_state
 
-rb_api_url = "https://www.repeaterbook.com/api/export.php"
-
+RB_API_URL = "https://www.repeaterbook.com/api/export.php"
 headers = {
-    "User-Agent" : "repeaterbookGeoanalysis https://github.com/nicheProgramming/repeaterbookGeoanalysis",
+    "User-Agent" : "repeaterbookGeoanalysis \
+        https://github.com/nicheProgramming/repeaterbookGeoanalysis",
     "Accept": "application/json"
 }
-
 modes = [
     "AllStar",
     "EchoLink",
@@ -26,7 +25,6 @@ modes = [
     "Tetra",
     "System Fusion"
 ]
-
 bands = {
     "10m": {
         "min": 28,
@@ -46,7 +44,6 @@ bands = {
         "unit": "GHz"
     }
 }
-
 emergency_nets = [
     "ARES",
     "RACES",
@@ -55,111 +52,150 @@ emergency_nets = [
 ]
 
 class rb_repeater:
-    def __init__(self, rb_repeater: dict) -> None:
-        self.freq = rb_repeater["Frequency"]
-        self.in_freq = rb_repeater["Input Freq"]
-        self.pl_tone = rb_repeater["PL"]
-        self.tsq = rb_repeater["TSQ"]
-        
-        self.callsign = rb_repeater["Callsign"]
-        self.set_emergency_nets(rb_repeater)
-        
-        self.latitude = float(rb_repeater["Lat"])
-        self.longitude = float(rb_repeater["Long"])
-        self.city = rb_repeater["Nearest City"]
+    def __init__(self, json_repeater: dict) -> None:
+        self.freq = json_repeater["Frequency"]
+        self.in_freq = json_repeater["Input Freq"]
+        self.pl_tone = json_repeater["PL"]
+        self.tsq = json_repeater["TSQ"]
+
+        self.callsign = json_repeater["Callsign"]
+        self.set_emergency_nets(json_repeater)
+
+        self.latitude = float(json_repeater["Lat"])
+        self.longitude = float(json_repeater["Long"])
+        self.city = json_repeater["Nearest City"]
         self.state_id = {
-            rb_repeater["State ID"]: ""
+            json_repeater["State ID"]: ""
         }
         self.state = self.translate_fips()
-        
-        self.notes = rb_repeater["Notes"]
-        
+
+        self.notes = json_repeater["Notes"]
+
         self.remove_empty_members()
-       
-        
+
+
     def __repr__(self) -> str:
         return self.callsign
 
-        
-    def __lt__(self, other) -> bool: 
+
+    def __lt__(self, other) -> bool:
         return self.callsign < other.callsign
-    
-    
+
+
     def remove_empty_members(self) -> None:
+        """Deletes empty member variables
+        """
         for member in dir(self):
-            if member.type() == str and member == "":
-                del self.member
-            elif member.type() == list and len(member) == 0:
-                del self.member
-            elif member.type() == int and member == 0:
-                del self.member
-            elif member.type() == float and member == 0:
-                del self.member
-            
-    
+            if not member:
+                del member
+
+
     def translate_fips(self) -> str:
+        """Turn a FIPS United States state ID code into the state's name
+
+        Returns:
+            state (str): Name of the state in question
+        """
         return list(fips_to_state(self.state_id).keys())[0]
-    
-    
-    def set_emergency_nets(self, rb_repeater: dict) -> None:
+
+
+    def set_emergency_nets(self, json_repeater: dict) -> None:
         self.emergency_nets = []
-        
-        for net in emergency_nets:
-            if rb_repeater[net] != "No":
+
+        for net in json_repeater["nets"]:
+            if net != "No":
                 self.emergency_nets.append(net)
 
 
-def url_encode(text, safe: str="") -> str:
-    if safe == "":
-        return urllib.parse.urlencode(text, safe="") 
-    else: 
-        return urllib.parse.urlencode(text, safe=safe) 
-    
-    
-def build_query(city:str) -> str: 
-    query = "?city={}".format(city)
-    return rb_api_url + query
+def url_encode(text: str, safe: str="") -> str:
+    """Encode text in URL safe manner
+
+    Args:
+        text (str): _description_
+        safe (str, optional): Characters which should not be encoded. Defaults to "".
+
+    Returns:
+        encoded_value (str): Resulting URL safe encoded string
+    """
+    if not safe:
+        return urllib.parse.urlencode(text, safe="")
+
+    return urllib.parse.urlencode(text, safe=safe)
 
 
+def rq_get(url: str) -> requests.Request:
+    """Get request to the Repeaterbook API
+
+    Args:
+        url (str): Query URL (with params)
+
+    Returns:
+        requests.Request: Resulting request
+    """
+    return requests.get(url, headers=headers, timeout=60)
+
+
+# TODO: ensure state is being passed into this func too
 def query_rb(city: str) -> dict:
-    query_url = build_query(city) 
-    q_headers = url_encode(headers)
-    
-    query = requests.get(query_url, headers=headers)
-    
+    """ Query Repeaterbook for repeaters in the provided city
+
+    Args:
+        city (str): The name of the city you wish to query
+
+    Returns:
+        dict: _description_
+    """
+    query_url = f"{RB_API_URL}?city={city}"
+
+    query = rq_get(query_url)
+
     wait_seconds = 60
-    
+
     while "rate_limiting" in query.text:
-        print("Hit Repeaterbook rate limit. Waiting {} seconds...".format(wait_seconds))
-        
+        print(f"Hit Repeaterbook rate limit. Waiting {wait_seconds} seconds...")
+
         sleep(60)
-        
-        query = requests.get(query_url, headers=headers)
-    
+
+        query = rq_get(query_url)
+
     return query.json()
 
 
 def categorize_results(query: dict) -> list:
+    """Turn repeaterbook output into list of Repeater objects
+
+    Args:
+        query (dict): The query results from Repeaterbook
+
+    Returns:
+        repeater_list (list): List of rb_repeater objects formed from the Repeaterbook data
+    """
     results = query['results']
     output = []
-    
+
     for repeater in results:
         entry = rb_repeater(repeater)
         output.append(entry)
-        
+
     return sorted(output)
 
 
 def query_cities(cities: list) -> list:
+    """Query Repeaterbook for each city in the provided list
+
+    Args:
+        cities (list): List of cities to query Repeaterbook for
+
+    Returns:
+        Amalgam_list (list): List of query_rb output list (list of rb_repeater objects) for all queried cities
+    """
     results = []
     seconds = 60
-    
+
     for city in cities:
-        print("Querying city {}...".format(city))
+        print(f"Querying city {city}...")
         results.append(query_rb(city))
-        print("Waiting {} seconds before next query...".format(seconds))
+        print(f"Waiting {seconds} seconds before next query...")
         sleep(seconds)
-        
-        
+
     return results
-    

@@ -1,39 +1,43 @@
-from requests_oauthlib import OAuth2Session
-from dotenv import load_dotenv
 from functools import wraps
-import repeaterbook
+
+from dotenv import load_dotenv
+from requests_oauthlib import OAuth2Session
+
 import here
+import repeaterbook
 
 load_dotenv()
 
 
-def authenticate(func):
+def authenticate(func: callable) -> callable:
+    """Decorator to authenticate to the here api before main
+
+    Args:
+        func (callable): Takes main as a decorator argument
+
+    Returns:
+        wrapper (callable): Returns wrapped main()
+    """
     @wraps(func)
     def wrapper():
         # Authenticate to Here
         here_session = here.authenticate()
         func(here_session)
-        
+
     return wrapper
-
-
-# Get the coordinates of a provided city by name
-def get_coords_of_city(city):
-    coords = []
-    return coords
 
 
 @authenticate
 def main(h_session: OAuth2Session) -> None:
-    # Radius in miles
-    radius = 10
-    
-    cities = here.get_cities_in_radius(h_session)
-    
-    results = repeaterbook.query_cities(cities, radius)
+    """Main
 
-    
-    return
-    
-    
+    Args:
+        h_session (OAuth2Session): Authenticated Here API session
+    """
+    radius = 10 # in miles
+
+    cities = here.get_cities_in_radius(h_session, radius)
+
+    results = repeaterbook.query_cities(cities)
+
 main()

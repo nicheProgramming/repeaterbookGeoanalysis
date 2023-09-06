@@ -1,38 +1,22 @@
-from oauthlib.oauth2 import TokenExpiredError
-from requests_oauthlib import OAuth1Session
-from requests_oauthlib import OAuth2Session
-from dotenv import load_dotenv
-from base64 import b64encode
-from os import getenv
 import urllib.parse
-import datetime
+from os import getenv
+
 import requests
-import hashlib
-import string
-import random
-import hmac
-import json
+from dotenv import load_dotenv
+from requests_oauthlib import OAuth1Session, OAuth2Session
 
 # source https://stackoverflow.com/questions/55883181/how-can-i-get-all-cities-within-a-given-radius-of-a-given-city-from-the-here-api
 
 load_dotenv()
 
-api_url = "https://revgeocode.search.hereapi.com/v1/revgeocode"
-
+API_URL = "https://revgeocode.search.hereapi.com/v1/revgeocode"
 
 headers = {
-    "User-Agent" : "repeaterbookGeoanalysis https://github.com/nicheProgramming/repeaterbookGeoanalysis",
+    "User-Agent" : "repeaterbookGeoanalysis \
+        https://github.com/nicheProgramming/repeaterbookGeoanalysis",
     "Accept": "application/json",
     "Authorization": "OAuth"
 }
-
-
-def create_nonce() -> str:
-    length = 6
-    letters = string.ascii_letters
-    result = "".join(random.choice(letters) for i in range(length))
-    
-    return result
 
 
 def authenticate() -> OAuth2Session:
@@ -40,122 +24,107 @@ def authenticate() -> OAuth2Session:
     key_id = getenv("here.access.key.id")
     key_secret = getenv('here.access.key.secret')
     token_endpoint_url = "https://account.api.here.com/oauth2/token"
-    
+
     payload = {
        "grant_type": "client_credentials"
     }
-    
+
     here_session = OAuth1Session(key_id, client_secret=key_secret)
     token = here_session.post(token_endpoint_url, data=payload)
     here_session = OAuth2Session(client_id, token=token.json())
-    
-    if here_session.authorized:
-        print("Authenticated to here API successfully")
-        return here_session
-    else:
+
+    if not here_session.authorized:
         print("Session failed to authenticate, aborting")
+
+        exit(2)
+
+    print("Authenticated to here API successfully")
+
+    return here_session
 
 
 def param_formatter(params: dict, prefix: str) -> str:
-    loop_iteration = 0
     output = ""
-    
-    for key, value in params.items():
-        loop_iteration += 1
-        output += key + "=" + str(value)
-        
+
+    for loop_iteration, (key, value) in enumerate(params.items(), start=1):
+        output += f"{key}={str(value)}"
+
         if loop_iteration < len(params):
             output += "&"
-            
+
     output = url_encode(output)
-    
+
     return prefix + output
 
 
 def url_encode(text, safe: str="") -> str:
-    if safe == "":
-        return urllib.parse.quote(text, safe="") 
-    else: 
-        return urllib.parse.urlencode(text, safe=safe) 
+    if not safe:
+        return urllib.parse.quote(text, safe="")
+
+    return urllib.parse.urlencode(text, safe=safe)
 
 
 def handle_http_codes(response: requests.Response) -> bool:
     code = response.status_code
-    reason = response.reason
-    
-    if code >=200 and code <= 299:
+
+    if code >= 200 and code <= 299:
         return True
-    else:
-        print("HTTP Code {0} {1}, request failed. ".format(code, reason))
-        exit(1)
+
+    reason = response.reason
+
+    print(f"HTTP Code {code} {reason}, request failed. ")
+
+    exit(1)
 
 
-def mi_to_meters(miles: int) -> int: 
+def mi_to_meters(miles: int) -> int:
     conversion_factor = 1.60934
     km = round(miles * conversion_factor)
-    meters = km / 1000
-    
-    return meters
+
+    return km / 1000
 
 
 def meters_to_mi(meters: int) -> int:
     conversion_factor = 1.60934
     km = meters / 1000
-    miles = round(km / conversion_factor)
-    
-    return miles
+
+    return round(km / conversion_factor)
 
 
 def query_api(session: OAuth2Session, radius: int) -> requests.Response:
-    # r for radius here is measured in meters. 
+    # r for radius here is measured in meters.
     # 25 miles = 40234 meters
     params = {
-        "in": "circle:36.153980,-95.992775;r={}".format(mi_to_meters(radius)),
-        # "apiKey": getenv("here.api.key"),api_url
+        "in": f"circle:36.153980,-95.992775;r={mi_to_meters(radius)}",
+        # "apiKey": getenv("here.api.key"),
         "lang": "en-US",
         "types": "city",
         "limit": 100
     }
     params = url_encode(params, safe=".;:=,")
-    request = session.get(api_url, params=params)
-    
+    request = session.get(API_URL, params=params)
+
     print(request.url)
-    
+
     handle_http_codes(request)
-    
-    r_json = request.json()
-    
-    return r_json
+
+    return request.json()
 
 
 def get_cities_in_radius(session: OAuth2Session, radius) -> list:
-    request = query_api(session)
+    request = query_api(session, radius)
     cities = []
-    
-    num_items_returned =  len(request["items"]) 
-    
+
+    num_items_returned =  len(request["items"])
+
     for item in request["items"]:
-        cities.append(item["address"]["city"])   
-    
+        cities.append(item["address"]["city"])
+
     if num_items_returned == 100:
         print("Warning! Return limit hit when querying here api")
     elif num_items_returned > 100 or num_items_returned < 0:
         print("Warning! Invalid return count")
     else:
-        print("Cities found: {}".format(num_items_returned))
-    
+        print(f"Cities found: {num_items_returned}")
+
     return cities
-
-
-def test_query() -> requests.Response:
-    # Not working yet. 403 with good API key. Why?
-    url = "https://reverse.geocoder.api.here.com/6.2/reversegeocode.json"
-
-    params = url_encode(params, safe=".,")
-
-    here_session = authenticate()
-    
-    request = query_api(here_session, url, params)
-    
-    print(request.content)
-    return request
