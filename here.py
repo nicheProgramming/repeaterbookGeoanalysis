@@ -1,5 +1,6 @@
 import urllib.parse
 from os import getenv
+from sys import exit as s_exit
 
 import requests
 from dotenv import load_dotenv
@@ -39,25 +40,11 @@ def authenticate() -> OAuth2Session:
     if not here_session.authorized:
         print("Session failed to authenticate, aborting")
 
-        exit(2)
+        s_exit(2)
 
     print("Authenticated to here API successfully")
 
     return here_session
-
-
-def param_formatter(params: dict, prefix: str) -> str:
-    output = ""
-
-    for loop_iteration, (key, value) in enumerate(params.items(), start=1):
-        output += f"{key}={str(value)}"
-
-        if loop_iteration < len(params):
-            output += "&"
-
-    output = url_encode(output)
-
-    return prefix + output
 
 
 def url_encode(text: str, safe: str="") -> str:
@@ -76,7 +63,12 @@ def url_encode(text: str, safe: str="") -> str:
     return urllib.parse.urlencode(text, safe=safe)
 
 
-def handle_http_codes(response: requests.Response) -> bool:
+def handle_http_codes(response: requests.Response) -> None:
+    """Handle request response HTTP codes
+
+    Args:
+        response (requests.Response): The HTTP response obj
+    """
     code = response.status_code
 
     if 200 <= code <= 299:
@@ -86,17 +78,33 @@ def handle_http_codes(response: requests.Response) -> bool:
 
     print(f"HTTP Code {code} {reason}, request failed. ")
 
-    exit(1)
+    s_exit(1)
 
 
 def mi_to_meters(miles: int) -> int:
+    """Convert Miles to Meters
+
+    Args:
+        miles (int): Miles you wish to convert
+
+    Returns:
+        meters (int): Meters result from source miles
+    """
     conversion_factor = 1.60934
     kilometers = round(miles * conversion_factor)
 
-    return kilometers / 1000
+    return kilometers * 1000
 
 
 def meters_to_mi(meters: int) -> int:
+    """Convert meters to miles
+
+    Args:
+        meters (int): Meters you wish to be converted to miles
+
+    Returns:
+        miles (int): Resulting miles
+    """
     conversion_factor = 1.60934
     kilometers = meters / 1000
 
@@ -104,8 +112,17 @@ def meters_to_mi(meters: int) -> int:
 
 
 def query_api(session: OAuth2Session, radius: int) -> requests.Response:
+    """Queries the Here reverse geocode API for a list of cities
+
+    Args:
+        session (OAuth2Session): Authenticated Here API OAuth2 session
+        radius (int): Radius in miles (converted to meters in function)
+
+    Returns:
+        requests.Response: Returns API response for query
+    """
     # r for radius here is measured in meters.
-    # 25 miles = 40234 meters
+    # i.e. 25 miles = 40234 meters
     params = {
         "in": f"circle:36.153980,-95.992775;r={mi_to_meters(radius)}",
         # "apiKey": getenv("here.api.key"),
@@ -123,19 +140,25 @@ def query_api(session: OAuth2Session, radius: int) -> requests.Response:
     return request.json()
 
 
-def get_cities_in_radius(session: OAuth2Session, radius) -> list:
+# TODO: Sanitize cities on the way out
+def get_cities_in_radius(session: OAuth2Session, radius: int) -> list:
+    """Get a list of cities in the provided radius. Alert the user if the API limit is hit
+
+    Args:
+        session (OAuth2Session): Authenticated Here API OAuth2 session
+        radius (int): Radius you wish to be searched in miles
+
+    Returns:
+        cities (dict): Dictionary of State Name: City Name
+    """
     request = query_api(session, radius)
-    cities = []
-
     num_items_returned =  len(request["items"])
-
-    for item in request["items"]:
-        cities.append(item["address"]["city"])
+    cities = [item["address"]["city"] for item in request["items"]]
 
     if num_items_returned == 100:
         print("Warning! Return limit hit when querying here api")
-    elif num_items_returned > 100 or num_items_returned < 0:
-        print("Warning! Invalid return count")
+    elif 0 < num_items_returned > 100:
+        print(f"Warning! Invalid return count of {num_items_returned}")
     else:
         print(f"Cities found: {num_items_returned}")
 

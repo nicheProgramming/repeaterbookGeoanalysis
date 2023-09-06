@@ -40,4 +40,8 @@ def main(h_session: OAuth2Session) -> None:
 
     results = repeaterbook.query_cities(cities)
 
+    return
+
+# Disable the warning here, as the wrapper will provide the arg for param
+# pylint: disable-next=no-value-for-parameter
 main()

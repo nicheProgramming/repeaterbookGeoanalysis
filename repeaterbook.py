@@ -127,9 +127,7 @@ class RbRepeater:
         """
         self.emergency_nets = []
 
-        for net in json_repeater["nets"]:
-            if net != "No":
-                self.emergency_nets.append(net)
+        self.emergency_nets.extend(net for net in json_repeater["nets"] if net != "No")
 
 
 def url_encode(text: str, safe: str="") -> str:
@@ -179,7 +177,7 @@ def query_rb(city: str) -> dict:
     while "rate_limiting" in query.text:
         print(f"Hit Repeaterbook rate limit. Waiting {wait_seconds} seconds...")
 
-        sleep(60)
+        sleep(wait_seconds)
 
         query = rq_get(query_url)
 
@@ -215,12 +213,17 @@ def query_cities(cities: list) -> list:
         Amalgam_list (list): query_rb output list (list of RbRepeater objs) for all queried cities
     """
     results = []
-    seconds = 60
+    seconds = 10
 
     for city in cities:
         print(f"Querying city {city}...")
+
         results.append(query_rb(city))
-        print(f"Waiting {seconds} seconds before next query...")
-        sleep(seconds)
+
+        # -1 here accounts for base 0 index
+        if cities.index(city) < (len(cities) - 1):
+            print(f"Waiting {seconds} seconds before next query...")
+
+            sleep(seconds)
 
     return results
